@@ -16,6 +16,7 @@ JSON Document Examples:
 	Normally can't do with a relational table, but MongoDB can!
 
 * Because MongoDB stores JSON documents, it makes it easy to program with!
+* MongoDB has dynamic schema (in other words schema-less) - documents can be in varying formats!
 
 ----------------------------
   Running MongoDB
