@@ -1,0 +1,36 @@
+----------------------------
+  Introduction to MongoDB
+----------------------------
+
+What is MongoDB?
+Non-relational Data Store for JSON documents (Javascript Object Notation)
+ - doesn't store with tables (like relational databases RDBMS)
+
+JSON Document Examples:
+(1) {"name":"Andrew"}
+(2) {"a":6, 
+	 "b":7, 
+	 fruit:["apple","pear","banana"] }
+
+* In this example, there's a key called fruit which maps to an array of fruits
+	Normally can't do with a relational table, but MongoDB can!
+
+* Because MongoDB stores JSON documents, it makes it easy to program with!
+
+----------------------------
+  Running MongoDB
+----------------------------
+http://www.mongodb.org/downloads
+
+ - mongo.exe	shell (client) process
+ - mongod.exe	server process
+
+Run mongod.exe on one command prompt
+Run mongo.exe on another command prompt
+
+----------------------------
+  Running PyMongo
+----------------------------
+http://api.mongodb.org/
+
+Using PyMongo 2.5
