@@ -7,6 +7,6 @@ Starting free self-paced course at https://university.mongodb.com/
 Course: 
 	M101P: MongoDB for Developers
 	7 week course
-	Start April 14, 2014
+	Starts April 14, 2014
 
 Get ready!
