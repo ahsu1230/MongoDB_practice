@@ -1,0 +1,85 @@
+-----------------------------
+  Class Project: The Blog
+-----------------------------
+
+ * Relational Model (Just for Fun):
+
+Tables...
+
+::: Post :::
+ * post_id
+ - author_id
+ - title
+ - post
+ - date
+
+::: Comments :::
+ * comment_id
+ - name
+ - comment
+ - email
+
+::: Tags :::
+ * tag_id
+ - name
+
+::: Authors :::
+ * author_id
+ - username
+ - password
+
+
+supporting relational tables...
+::: post_tags :::
+	(post_id, tag_id)
+::: post_comments :::
+	(post_id, comment_id)
+
+To display a post (with its comments, tags, and author)
+we need 6 tables!
+
+------------------------------------------------------------------------
+
+ * So then how about in MongoDB (using Documents)
+
+Collection:
+posts {
+	title: 	"",
+	body: 	"",
+	author:	"",
+	date:	"",
+	comments: [
+		{ name: "", email: "", comment: "" },
+		{ name: "", email: "", comment: "" },
+		{ name: "", email: "", comment: "" }
+	],
+	tags: ["","",""],
+}
+
+authors {
+	_id_:	...,
+	password: "",
+	userinfo: ""
+}
+
+To display a post (with its comments, tags, and author)
+we only need 1 collection (posts).
+The author collection is simply for userinfo stuff... which is not included in post displays!
+It's schemaless, so it doesn't matter which sizes each of the fields are!
+
+------------------------------------------------------------------------
+
+Why this schema?
+ - Why should comments / tags be embedded in posts?
+ - Why not put it in a different collection?
+
+Think about accessing patterns.
+When you access a post, you will most likely access a tag, comment at the same time!
+	And this happens very often
+
+You could want to access all posts of a certain tag (search by tag)
+	But this is a less often request operation
+
+
+Within a collection, documents have a 16MB limit.
+So sometimes, embedded data cannot be embedded into collection.

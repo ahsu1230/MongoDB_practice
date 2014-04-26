@@ -1,0 +1,114 @@
+-----------
+  CRUD
+-----------
+Create	-> Insert
+Read	-> Find / Select
+Update	-> Update
+Delete	-> Remove
+
+In MongoDB, CRUD operations exist as method/function APIs
+
+
+-----------
+  BSON
+-----------
+MongoDB uses a binary representation of JSON
+	- basically, like JSON formatting, but instead of string, uses bytes
+
+
+-----------
+  Mongo
+-----------
+Review:
+	Client! Assumes MongoD Server already running
+	The Mongo shell is an interactive Javascript interpreter
+
+--------------
+  Operations
+--------------
+* Insert!
+	~ doc = { "name" : ___, "age" : 30 }
+	~ db.people.insert( doc )
+	~ "_id" is automatically added to doc unless otherwise specified
+
+* Find
+   ~ db.people.find()
+	~ returns objects with "_id" s.t. all _id are unique in database
+	- usually only returns a batch of 20 object results at a time...
+
+   ~ db.people.findOne()
+	~ returns one object (at random)
+	Examples:
+	db.people.findOne({"name" : "Jones"})
+		returns one object with name == "Jones" (outputs all fields of object, including _id)
+	db.people.findOne({"name" : "Jones"}, {"name" : true, "_id" : false})
+		- the FIRST argument  => what to match
+		- the SECOND argument => how to output
+		returns one object with name == "Jones" 
+			outputs "name" field
+			but does not have output _id field 
+			( _id field is by default true)
+			( all other fields are default false)
+
+   ~ Query more abstract values (using Query Operators!)
+	*** Uses Embedded "query" documents, like so:
+	Equal Query: 		{score : 50}
+	Greater Than Query:	{score : {$gt : 95} }
+	LTE Query:		{score : {$gt : 95, $lte : 98} }
+	String Query: 		{name: {$lt : "D"}}
+
+	Field Exist Query:	{profession : {$exists : true}}
+	Field Type Query:	{name : {$type:2}}
+				(type 2 means string)
+
+   ~ REGULAR EXPRESSION!
+	contains an 'a'	{name : {$regex:"a"}}
+	ends with 'e'	{name : {$regex:"e$"}}
+	starts with 'A'	{name : {$regex:"^A"}}
+
+   ~ LOGICAL QUERIES
+	.find( { $or:  [{cond1},{cond2}] } );
+	.find( { $and: [{cond1},{cond2}] } );
+		* Note: Rarely use $and, because you can simply {cond1,cond2}
+			(Query using multiple fields of same doc)
+
+   ~ ARRAY QUERIES
+	consider...
+	object: {name:"George", favorites:["pretzels", "ice cream"]}
+	object: {name:"Howard", favorites:["pretzels", "beer"]}
+	object: {name:"Dennis", favorites:"pretzels"}
+
+	.find( {favorites : "pretzels"} )
+	returns ALL objects because it looks for a "favorites" field
+		and if contains "pretzels" values, it would match.
+	But, there is NO recursing!! Only looks at "top-most level" field
+
+	.find( {favorites : {$all : ["pretzels", "beer"]} });
+		returns objects with ALL query strings in favorites array
+
+	.find( {name : {$in : [ "Howard", "John" ] } });
+		returns objects with ANY query strings in names array		
+
+   ~ DOT NOTATION
+	for embedded fields like below...
+	{
+	    name : "Richard"
+	    email : {
+		"work": 	"asdf@foo.com",
+		"personal": 	"qwer@example.com"
+	    }
+	}
+	Using .find({email: {work : "asdf@foo.com", personal : "qwer@example.com"}}) will work! The query matches the "email" value exactly!
+	but...
+	Using .find({email: {personal : "qwer@example.com", work : "asdf@foo.com"}}) will NOT work! Must match byte by byte!
+	Using .find({email: {work : "asdf@foo.com"}}) will not work! Why?
+		MongoDB doesn't search "recursively" into embedded fields like that.	
+
+	So use...
+	.find({"email.work" : "asdf@foo.com"})
+		Looks into the work field of the email field for the string value!
+		Use this for nested documents
+
+* Update
+
+* Delete

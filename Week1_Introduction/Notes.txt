@@ -1,6 +1,6 @@
-----------------------------
+-----------------------------
   Introduction to MongoDB
-----------------------------
+-----------------------------
 
 What is MongoDB?
 Non-relational Data Store for JSON documents (Javascript Object Notation)
@@ -18,9 +18,29 @@ JSON Document Examples:
 * Because MongoDB stores JSON documents, it makes it easy to program with!
 * MongoDB has dynamic schema (in other words schema-less) - documents can be in varying formats!
 
-----------------------------
+
+Scalability vs. Depth of Functionality
+	
+		Not deep		Very deep
+
+Scalable	- memcached		MongoDB (tries, not as deep as RDBMS)
+		- key,value stores
+not Scalable				RDBMS (SQL, Oracle, DB2)
+
+RDBMS can scale VERTICALLY (can add hardware to get performance on single node)
+	but not good for scaling HORIZONTALLY (just using commodity hardware)
+
+* MongoDB does not support Joins	* cannot join documents from different collections
+					* joins are not that horizontally scalable - using commodity hardware
+
+* MongoDB does not have Transactions	* transactions not supported over multiple documents
+					* documents are heirarchical, can't access documents atomically
+					-> hard to implement over different collections
+
+
+-----------------------------
   Running MongoDB
-----------------------------
+-----------------------------
 http://www.mongodb.org/downloads
 
  - mongo.exe	shell (client) process
@@ -29,9 +49,173 @@ http://www.mongodb.org/downloads
 Run mongod.exe on one command prompt
 Run mongo.exe on another command prompt
 
-----------------------------
-  Running PyMongo
-----------------------------
-http://api.mongodb.org/
+*** How to use Mongo shell ***
+ - Shell uses Javascript, and objects are JSON (Javascript Object Notation)
+Example:
+> use test
+> db.things.save( { a : 1 , b : 2 , c : 3 } )
+> db.things.find()
+> db.things.save( { a : 3 , b : 4 , c : 6 , d : 200 } )
+> db.things.find()
+> db.things.find( { a : 1 } )
 
-Using PyMongo 2.5
+# "use test" creates a database called "test" if it doesn't exist
+# things is the name of our collection, and we save a JSON document
+# you can access files in collection using .find(). Returns: WriteResult({"mInserted" : 1 })
+# MongoDB is schema-less so varying structured documents can co-exist in collections
+# .find( ... ) with a "prototype" document to find specific documents
+# Outputs are JSON documents, with values, but all documents start with an (id : ID) key-value pair
+
+-----------------------------
+  JSON
+-----------------------------
+Heirarchy JSON document
+
+# uses an array
+{
+	"a" : 1, 
+	"b" : 1, 
+	"fruit" : [
+		"apple",
+		"pear",
+		"orange"
+	] 
+},
+
+# doc within doc
+{								
+	"name" : "andrew"
+	"address" : {
+		"street" : "elm drive",
+		"city" : "Palo Alto",
+		"zip" : "94305",
+		"house_number" : 34
+	}
+}
+
+
+
+-----------------------------
+  MongoDB: Building an App!
+-----------------------------
+Two processes: Mongo shell & MongoD (server)
+Mongo client interacts with MongoD server
+
+Next, have a HTTP Server that is running the following:
+ - Python Interpreter
+ - Bottle Framework
+ - PyMongo
+
+Bottle & PyMongo allow you to connect to MongoD server
+A user browser client connects & interacts to HTTP server
+
+
+*** Example Usage ***
+db.names.find()			# searches all in collection "names"
+var j = db.names.findOne()	# searches for first file in collection "names" -> save to variable j
+j
+j.name = "Dwight"		# change "name" value of j to "Dwight"
+db.names.save(j)		# saves j to collection "names"
+				# replaces old j with new j
+
+So what does save do?
+.save				# looks at source code of save
+
+.save(j) looks for any object in collection with SAME ID.
+If it's the SAME ID, we replace the old one with j.
+Otherwise, we simply add it to the collection.
+
+
+*** Building Helloworld! (First Web Application) ***
+Review:
+ - MongoD is our server
+ - Application is written in python, pymongo, bottle
+ - Want to display a web page via HTTP
+
+in hello.py
+ - import bottle, import pymongo
+ - create @bottle.route('/') # going to a web server without url, this is the default/index page
+ - define function
+	 - Use pymongo.MongoClient('localhost', 27017) # default port MongoD listens on
+	 - ...pymongo stuff to access DB stuff... i.e.
+		connection = pymongo.MongoClient(...)
+		db = connection.test
+		name = db.names
+		item = name.find_one()
+	 - returns HTML string
+ - bottle.run(host='localhost', port=8082)	# some port
+						# server will start listening on this port
+
+ # going to localhost:8082 will give you the HTML
+
+
+-----------------------------
+  Bottle Framework Tutorial
+-----------------------------
+Background:
+ - Use Web Browser to display HTML by making TCP/IP requests to web server
+	Usually GET requests
+	Protocol: HTTP (TCP (IP))
+ - Web Server runs Python with Bottle Framework
+	Serves GET replies (for website)
+	listens on a certain port
+
+@bottle.route('/')
+def home_page():
+	return HTML string
+
+@bottle.route('/testpage')
+def test_page():
+	return HTML string
+
+bottle.debug(True)				# Turns on Debugging
+bottle.run(host='localhost', port=8080)		# Run command that specifies hostname & portnumber for server to listen on
+
+
+Start server by calling python hello_world.py
+Then go to browser: localhost:8080 		# home_page() function
+		    localhost:8080/testpage	# test_page() function
+
+
+*** Model View Controller (3 modules of functionality) ***
+ - Model: 	Keeps the state (MongoDB)
+ - View: 	What the user sees (HTML), manipulated by Model
+ - Controller:	Takes user input to manipulate Model
+
+Using Bottle Templates!
+Under home_page() function in hello_world.py
+	...
+	return bottle.template('hello_world', {username:"", things:mythings})
+	# sends a dictionary with key->value pairs
+
+Under hello_world.tpl ( kind of like an HTML document )
+<!DOCTYPE html>
+	...
+	<p> Welcome {{username}} </p>
+	%for thing in things:
+	<li> {{thing}} </li>
+	%end
+	...
+</html>
+
+	*** So .tpl is a HTML document that has access to python expressions
+	*** It can substitute "username" and "things" through double brackets
+	*** And has kind of like python code (lines starting with %)
+	*** remember %end for indents ending
+
+
+Must place .tpl in views/ directory!!!!
+
+
+
+*** Using cookies! ***
+Under .py file
+def favorite_fruit():
+	fruit = bottle.request.forms.get("fruit")	# gets form submission
+	bottle.response.set_cookie("fruit", fruit)	# set cookie response to form submission
+	bottle.redirect("/show_fruit")			# redirect HTTP response to fetch GET of new page
+
+@bottle.route('/show_fruit')				# REDIRECT HERE!!
+def show_fruit():
+	fruit = bottle.request.get_cookie("fruit")	# extract cookie value from cookie "fruit"
+	return bottle.template("fruit_selection.tpl", {'fruit':fruit})	# use template to pass in variable value!
