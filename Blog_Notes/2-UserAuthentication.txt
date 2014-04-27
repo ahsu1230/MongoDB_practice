@@ -1,0 +1,42 @@
+-----------------------------
+  Class Project: The Blog - User Authentication
+-----------------------------
+
+Hw2: 	Create new users (and adding them to the database)
+	Authenticate login attempts with username & password
+
+database: blog
+collections: sessions, users, system.indexes
+
+Sessions database
+associates a sesion ID with a username
+(placed in browser cookie)
+
+
+When going to Welcome Page...
+1) Browser sends HTTP GET request (with cookie) to Application (Python)
+2) Blog Application (uses Bottle) gives session ID to MongoDB database
+3) MongoDB dtabase responds with a username to Application
+4) Application responds to the first GET request with a HTML page
+
+When loggin in...
+Present a username and log-in
+1) Browser sends HTTP POST request to application
+2) Application checks username/password in MongoDB
+3) If valid login, create an entry in sessions collection
+4) Application receives session and responds to browser with following:
+	- redirection to the Welcome page (with cookie)
+	- Browser sends GET request to Application (see above)
+	- keeping in mind the cookie information for session
+
+--------------
+  Blog files
+--------------
+
+blog.py : Controller
+	- controls all the calls to URLs
+	- has "main" function
+	create users DAO (Database Access Object)
+	create sessions DAO
+
+Look at Views folder for .tpl (HTML templates)
