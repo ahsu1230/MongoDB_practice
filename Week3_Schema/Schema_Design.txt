@@ -1,0 +1,238 @@
+-----------------
+  Schema Design
+-----------------
+
+Questions to ask?
+ - How to organize our data? Be application driven
+ - What pieces of data are read-only & often
+ - What pieces of data are written often
+ - Organize data should match application access patterns
+
+For relational, data is kept that's agnostic to the application (?)
+
+Basic Reviews:
+ - Ric Documents (arrays, key->value, embedded documents)
+ - Prejoin / embed data for fast access
+ - No JOINS in MongoDB. Joins are hard to scale, so Mongo doesn't support it.
+ - No constraints (schemaless/typeless)
+ - Atomic Operations (but not transactions)
+
+
+---------------------
+  Relational Review
+---------------------
+For Blog Posts: we want title, body, author and email
+
+For Relational tables, store like so:
+
+post_id  title  body   author   author_email
+0	  ""	""	"A"	"A@email.com"
+1	  ""	""	"B"	"B@email.com"
+2	  ""	""	"A"	"A@email.com"
+
+
+* This is a Denormalized Table *
+- If we wanted to change A's email, we would have to change
+  a bunch of posts by looking for all posts with email A@email.com
+You can see that there are redundant instances of A@email.com
+and changing that would require redundant accessing.
+
+Normalized Forms...
+
+1st Normal Form: Ensures primary key, defined data items (columns), no repeating groups of data
+2nd Normal Form: Meet 1st NF, and no partial dependences of columns to primary key (for example, if customerID & orderID are primary key, then customer name only depends on customerID not orderID)
+3rd Normal Form: Meet 2nd NF, and all nonprimary fields are dependent on primary key
+(This table does not follow 3rd Normal Form since author_email only depends on author)
+
+
+A Normalized design will try to store differently
+so that we don't store as many redundant pieces but instead "joins"
+queries from multiple databases (example join 'post' & 'user' databases)
+
+Goals for Normalization:
+ - Free Database of modification anomalies (like above, can leave emails of author A to be inconsistent)
+ - Minimize redesign when extending table
+ - * Avoid bias toward particular access pattern *
+
+In MongoDB, we don't really have to worry about avoiding bias because we tune our design to fit our application
+So there will be particular access patterns that need to be done very well and some don't need to be done that well.
+(APPLICATION DRIVEN -> BIASED ACCESS PATTERNs)
+
+------------------------------
+  Living Without Constraints
+------------------------------
+(i.e. Foreign Key Constraint)
+Look at Blog Notes to observe different schema designs
+
+-------------------------------
+  Living Without Transactions
+-------------------------------
+ - MongoDB don't have Transactions
+	From relational perspective, if you had 3 tables for a POST
+	In order to change a post, you would have to "start a transaction", change table POST, then COMMENTS, then TAGS (or something), then "end the transaction"
+	It's like a series of operations for different tables...
+	With embedded documents, you don't need transactions! You just need to change the inside content of documents
+
+ - MongoDB does have Atomic Operations!
+	When you work on a single document, changes will be made & done before accessed by others
+	In other words, you either see all the changes, or none of them!
+
+So putting it together...
+You can restructure your data to take advantage of embedded documents / data
+so everything is on a single document. Operations only need to worry about a single document at a time (instead of over multiple tables)
+Operations are also atomic, so they are as safe and consistent as transactions.
+
+
+
+---------------
+   Relations
+---------------
+
+* ONE TO ONE *		( Employee : Resume )
+	Relational:	two tables (Employee & Resume), but employee has 'resume' ID
+	MongoDB:	one document, Employee objects that contain an embedded 'resume' field
+
+	Which to use?
+	* Frequency of Access?
+	 - If I access employee often, but don't look at resume
+	 - If resume is embedded, we pull in resume info into memory all the time
+	 - So might be better to keep in separate collection
+	* Frequency of Growth? Size of items?
+	 - What if resume is too big (>16MB)? Then we can't embed it
+	* Atomicity of Data
+	 - Atomicity only applies to documents at a time
+	 - If resume is embedded, documents (resume + employee) gets updated at once
+	 - If not embedded and in separate collections, not as atomic!
+
+* ONE TO MANY *		( City : Person )
+	City collection
+	 - city name
+	 - area
+	 - people [ '', '', '' ]	<- but for NYC, people array is HUGE
+
+	but what about other way?
+	People collection
+	 - name
+	 - city { ... }			<- but for NYC, redundant NYC data for every person
+
+	Solution: True Linking!
+	2 Collections (people and cities)
+		Every Person contains a 'city' field 	(NYC)
+		Every City has unique ID		(NYC)
+		be careful of foreign key constraints!
+
+	What about One to "Few"? Like Blogpost : Comments (not too many comments per blogpost)
+	Then embedding is okay! Only need a single collection.
+
+* MANY TO MANY *	( Students : Teachers )
+	2 collections (Students & Teachers)
+		Students contain a 'teachers' field for array of student_IDs
+		Teachers contain a 'students' field for array of teacher_IDs
+		Bridging them both ways could be okay, but open to potential inconsistencies
+	How about embedding Students into Teachers?
+		Maybe not a good idea because
+		- there will be redundant student data or student inconsistencies (multiple teachers for student A)
+		- what if we add a Student with no teachers yet?
+			We can't because we need to assign a teacher first!				
+	Vice versa for embedding Teachers into Students
+
+-------------------------
+  Benefits of Embedding
+-------------------------
+ - Main Benefit: Performance!
+	Improved reading as it's one round trip to the DB
+	One read from Disk for one document
+	So subsequent reads in same spatial locality are fast
+	
+	If in multiple documents/collections, more First Reads (much slower)
+
+ - But... your writes could be slow due to embedding
+	Documents are larger, so multiple movements of documents
+	to multiple locations means large reads
+
+------------------------
+  When to Denormalize
+------------------------
+
+Review:
+Why to normalize? Avoid modification anomalies when redundant data.
+For mongoDB, not exactly most normalized, 
+	but we are not duplicating data (so no modification anomalies)
+
+	1:1 		Embed
+	1:Many 		Embed (from many to one) (embed comments into a blogpost)
+	Many:Many	Link! (array of associated object IDs)
+
+
+
+
+
+
+
+
+---------------------
+  Multi-Key Indexes
+---------------------
+Relook at Students : Teachers (Many:Many)
+
+students
+{_id, name, teachers[]}
+
+teachers
+{_id, name}
+
+Query1: Search all teachers of student S {find by student _id, and return values of teacher IDs}
+Query2: Search all students of teachers T (now what?) - use multi-key indexes
+
+db.students.ensureIndex({'teachers':1})
+	creates Index and returns info about that Index (in this case on teachers field)
+	There is by default, one Index per collection (_id)
+
+db.students.find({'teachers':{$all:[0,1]}})
+	finds all students such that there are indices 0 & 1 in teachers field
+
+db.students.find({'teachers':{$all:[0,1]}}).explain()
+	explains how DB used Index cursor and if used multikey index
+
+---------------------
+        Trees
+---------------------
+Example: E-commerce Sites like Amazon
+Collections: products, category
+
+Representing something like this:
+Home products -> Outdoors -> Winter -> Snow
+
+-> List Ancestors for Category
+Category can contain an ancestor field which is array of parent category indices (in order)
+
+Category:
+	_id: 34,
+	category_name: "snorkeling",
+	parent_id: 12,		<- id of parent category!
+	ancestors [12, 35, 90]	<- id of ancestor categories!
+
+db.categories.find({parent_id:34})	<- finds all DIRECT descendents of "Snorkeling"
+db.categories.find({ancestors:34})	<- finds all descendents of "Snorkeling"
+db.categories.find({_id:{$in:[12,35,90]}}) <- finds categories 12, 35, or 90
+
+---------------------
+        GRIDFS
+---------------------
+Documents can only be at most 16 MB
+But, with GridFS, you can break up a large file into chunks
+You can store chucks into one collection, then metadata into another collection
+
+import gridfs
+...
+videos_meta = db.videos_meta
+
+grid = gridfs.GridFS(db, "videos")
+_id = grid.put(in)
+videos_meta.insert({'grid_id':_id, "filename":"video.mp4" })
+
+in Mongo... show collections
+
+videos_meta	- the meta data we created (tells us object id in videos.files)
+videos.files	- gridFS meta data linking (tells us metadata, length of object)
+videos.chunks	- gridFS chunks		   (every "document" is a chunk of binary encoded video data)
