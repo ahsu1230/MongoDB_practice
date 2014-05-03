@@ -26,12 +26,12 @@ Review:
 --------------
   Operations
 --------------
-* Insert!
+* Insert! *
 	~ doc = { "name" : ___, "age" : 30 }
 	~ db.people.insert( doc )
 	~ "_id" is automatically added to doc unless otherwise specified
 
-* Find
+* Find! *
    ~ db.people.find()
 	~ returns objects with "_id" s.t. all _id are unique in database
 	- usually only returns a batch of 20 object results at a time...
@@ -109,6 +109,86 @@ Review:
 		Looks into the work field of the email field for the string value!
 		Use this for nested documents
 
-* Update
+   ~ CURSOR QUERIES (iterators through databases)
+	cur = db.people.find();
+	cur is a variable that points to first document object
+	you can iterate through all results by using
+		cur.hasNext() and cur.next()
+	while (cur.hasNext()) printjson(cur.next());
 
-* Delete
+   ~ SORTING QUERIES
+	Example:
+	cur = db.people.find()
+	cur.sort( {name : -1 } )
+	returns a new cursor with name in reverse order (Z -> A)
+
+   ~ COUNTING QUERIES
+	db.scores.count(...)
+	returns a number
+
+* Update! *
+   ~ db.people.update({...},{...})
+	- first argument FINDS document object
+	- second argument REPLACES specified fields of object
+		- non-specified fields ARE GONE!!!
+	- in other words, completely replaces objects (wholesale replacement)
+	- object ID remains the same
+   ~ $set (adding/changing fields)
+	- db.people.update( {...}, { $set : { age : 30 }} )
+	- adds an age field (if doesn't exist) or changes age to found documents
+   ~ $inc (changes fields)
+	- like $set, increments a field when found
+	- db.people.update( {...}, { $inc : { age : 1 }} )
+	- increments age by 1 (if exists)
+	- if it doesn't exist, age will start off at 1 (the increment step)
+   ~ $unset (removing fields)
+	- db.people.update( {...}, { $unset : { profession : 1 }} )
+	- any value will work (can be arbitrary)
+
+   ~ ARRAY MANIPULATION
+	- db.c.update( {...}, { $set : {"a.2" : 5 }})
+		finds document object
+		looks for the 3rd element of field "a" and changes it to 5
+	- $push : {a : 6 }
+		adds to end of array
+	- $pop : {a : -1}
+		removes from head of array
+	- $pushAll : {a : [7,8,9]}
+		extends end of array with newArray
+	- $pull : {a : 5}
+		looks for a certain element in array, and removes it
+	- $pullAll : {a : [2,4,8]}
+		looks for elements in array, and removes all occurences
+	- $addToSet : {a : 5}
+		treats an array as a set (all elements must be unique!)
+		only add to array, if the element does not exist!
+   ~ db.c.update( {...}, {...}, {upsert:true} )
+		Either updates a document that does exist
+		OR adds it in, if it doesn't exist.
+			The new object added in contains both arguments 1 & 2
+			(what it's searching for, and what it wants to update to)
+
+   ~ MULTI-UPDATE
+	db.people.update( { }, {...} )
+		{ } looks at ALL documents in database
+		.update only updates FIRST document object
+	db.people.update( { }, {...}, {multi:true})
+		need multi option to update ALL document objects
+		* note: NOT THREAD SAFE, NOT ISOLATED *
+		* but all operations (insert/update) are atomic individually *
+
+* Delete! *
+   ~ db.people.remove( {...} )
+	like .find(), first argument we look for to remove (removes one by one)
+	but MUST pass in an argument
+	* note: Like, Multi-update, this is a multi-remove *
+	* so removing all is NOT ISOLATED, but all remove operations are individually atomic *
+   ~ db.people.drop()
+	removes ALL documents in collection
+	more efficient than db.people.remove( { } )
+
+
+* getLastError * (only MongoDB v2.4 and earlier)
+   ~ db.runCommand( {getLastError : 1} )
+	reports if last operation was successful or not
+	can see error message under "err" field
