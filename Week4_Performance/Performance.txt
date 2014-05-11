@@ -1,0 +1,195 @@
+------------------------
+  Database Performance
+------------------------
+
+Using Indexes is most important factor in database performance (MongoDB or Relational)
+
+In Databases... given a query for a collection...
+
+ - By default, table scan...
+	Table scan is O(n) linear searching for some document
+	May have to do this for any unordered listing
+
+ - If list is ordered (alphabetically)
+	Much quicker by using binary searching O(logn)
+	Instead of binary searching... use B tree (huge factor of branching)
+		With a B-tree, you can quickly find a key, which gives pointer to actual documents
+
+ - Indexes are ordered lists of keys
+	i.e. (name, hair_color, birthdate)
+	
+	List of names:	Amy, John, Zoe
+	For each entry in names (Amy)
+		we have pointers to different hair_colors
+		for each hair_color
+			there are pointers to different birthdates
+			For every birthdate,
+				there are points to actual documents
+
+	So names is the top level, and birthdate is the lowest level.
+	But what if queries are by Date of Birth?
+		Can't do much... since you'll need to search through all pointers in the birthdate level
+	
+	Database reads are faster with indexes in some cases, 
+	but writing to database (add/remove/edit) are a bit slower and take up more space because index needs to be updated
+
+
+--------------------
+  Creating Indexes
+--------------------
+
+db.students.ensureIndex( {student_id:1} )
+
+ * Builds an index on 'student ID' by ascending order
+
+db.students.find( {student_id:50000} )
+	- normally would take a long time
+	- but with indexing and using B-tree, it's much faster!
+
+db.students.ensureIndex( {student_id:1, class:-1} )
+ * Compound Index
+ * Builds index on ascending 'student ID' and descending 'class' number
+
+--------------------
+  Show All Indexes
+--------------------
+db.system.indexes.find()
+	- shows indexes on all collections (whole database)
+	- _ID is default index for a collection
+
+db.students.getIndexes()
+	- get all index details in a particular collection
+db.students.dropIndex( {'students_id':1} )
+	- removes specified index from system
+
+
+--------------------
+  Multikey Indexes
+--------------------
+Observe:
+{ name: 	'Andrew',
+  tags: 	[...],
+  color: 	'red',
+  locations: 	[...]  }
+
+Can produce multikey on tags, color (one of them is an array)
+CANNOT produce multikey on tags, location (multiple keys are arrays)
+
+Can also index the sub-parts of documents (like arrays)
+ > db.people.ensureIndex( {'addresses.tag':1} )
+
+
+-------------------
+  Index Creation
+-------------------
+
+*** UNIQUE INDEXES ***
+Ensure unique indexes on collections.
+Prevents repetitive collection inserts of keys afterwards
+
+ > db.stuff.ensureIndex( {thing : 1}, {unique : true} )
+
+Drops documents that have repetitive keys (keeps an arbitrary one)
+
+ > db.things.ensureIndex( {thing : 1}, {unique:true, dropDups:true } )
+
+*** SPARSE INDEXES ***
+What if there are certain documents that don't have a certain key? 
+i.e. What if we create unique index on c?
+{..., b:4, c:5}
+{..., b:8, c:10}
+{..., b:17}
+{..., b:23}
+It won't work because 3rd and 4th document have 'c' value of null
+NOT UNIQUE! Create Sparse Index!
+		-> creates an index only on documents with 'c'
+
+ > db.products.ensureIndex( {size:1}, {unique:true, sparse:true } )
+
+Let's try sorting!
+ > db.products.find()			# gives all documents in DB
+ > db.products.find().sort({size:1})	# gives all documents (whether they have 'size' field or not). Uses generic basic cursor (no index used)
+ > db.products.find().sort({size:1}).hint({size:1}) # gives only documents with 'size' field. Uses 'size' sparse index we created
+
+
+*** BACKGROUND vs. FOREGROUND ***
+By default, index creations are in FOREGROUND
+	- fast
+	- but blocks writes (per database lock - blocks people in the same database)
+If creating index in BACKGROUND
+	- slow
+	- does not block writes
+	- only build one index at a time per database
+	- creating background index blocks that mongo shell
+
+
+---------------
+  Index Usage
+---------------
+ - Given a couple of indexes...
+	MongoDB runs searches on separate threads and see which one ends first
+	The one that ends successfully is chosen as the one for those "types" of queries
+	Machine Learning for Index usage! WTF!
+	Every couple of queries, reset "learning"
+ - Left subset of indexes only ( i.e. [d,c,b,a] )
+	d 	works
+	d, c 	works
+	d, b	works (but is the same as d)
+	c, b	does not work
+ - ascending vs. descending of indexes matter!
+	if index key is a:1
+	.sort(a:-1) does not use that index
+
+ - Indexes are EXPENSIVE (in example, one index was like 200 MB)
+	we want to keep them in (working) memory as opposed to disk
+	keeping on disk means slower access to indexes... so performance wise not so great (disks are slow)
+ > db.students.getIndexes()
+ > db.students.totalIndexSize()
+
+ * Note: We sacrifice space complexity for performance complexity *
+
+ *** HINTING ***
+ .hint( {a:1,b:1,c:1} )	-> hints to use index set [a,b,c]
+ .hint( {$natural:1} )	-> hints to use basic cursor
+ .hint( {d:1} )		-> hints to use d, but there's no 'd' field anywhere! Still searches through everything like basic cursor.
+
+To hint in PyMongo...
+Example:
+ doc = foo.find(query).hint([('c', pymongoASCENDING)]).explain()
+
+parameter of .hint() needs to be an array of tuples
+For compound index hinting, add tuples to the array
+
+---------------------
+  Index Cardinality
+---------------------
+Regular Index:
+	- 1:1 cardinality (num_pointers = num_documents)
+Sparse Index:
+	- num_pointers <= num_documents
+	- some documents have null values in some field so they get left out of 'index search space'
+Multikey Index:
+	- num_pointers > num_documents
+	- some values have arrays with multiple values, that each get indexed
+
+---------------------
+  Index Selectivity
+---------------------
+	When choosing what to index, try to index most selective (smallest groupings) for keys
+	This parses out as much of potential search space as possible
+	Makes everything faster
+	
+
+--------------------
+  Index Efficiency
+--------------------
+Operations to watch out for: $lt, $gt, $ne, or regular expression
+Some of these operations may want to look at all values, so using indexes might still not be efficient.
+i.e. 1000 students, index on class_id and student_id
+
+.find({student_id:{$gt:500},class_id:20}).sort({'student_id':1})
+vs.
+.find({student_id:{$gt:500},class_id:20}).sort({'student_id':1}).hint({'class_id':1})
+
+First is slow because $gt operations are not good with indexes
+Second is faster because we use the class_id index instead

@@ -1,0 +1,6 @@
+Search profiler
+	inside database 'school2'
+	inside collection 'students'
+	for largest latency (greatest millis value)
+
+db.profile.find({"ns":"school2.students"}).sort({"millis":-1}).pretty()

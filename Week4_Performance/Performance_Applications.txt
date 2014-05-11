@@ -1,0 +1,89 @@
+How to apply efficient indexes to different kinds of searching!
+
+
+----------------------
+  Geospatial Indexes
+----------------------
+Imagine 2D Coordinate System...
+you have a current location, and nearby interest points around you
+Every point/location has a (x,y)
+
+How do I find nearby locations?
+
+	'location' : [x,y]
+.ensureIndex( {"location" : '2d', type:1})
+
+.find( {location: {$near:[some_x,some_y]}} )
+	find me all nearby locations near point some_x, some_y
+	add in .limit(20) to get up to 20 nearby locations
+
+* Geospatial SPHERICAL *
+Imagine 2D sphere (globe) made of longitude and latitude
+
+use specification called GeoJSON 
+
+.ensureIndex( {"location" : '2Dsphere'})
+location fields now have 'type' fields with value "Point" 
+		and 	 'coordinates' fields with longitude, latitude
+
+--------------------
+  Full Text Search
+--------------------
+.ensureIndex({'words':'text'})
+
+Specifies a 'text' index that indexes all strings in "words" fields of documents
+
+.find({'{$text:{$search:'dog'}})
+	Looks for text 'dog'
+.find({'words':'dog'})
+	Will not necessarily get any, because this matches EXACTLY words == 'dog'
+
+How "good" of a match?
+db.sentences.find( {$text:{$search:'dog tree obsidian'}}, {score:{$meta:'text'}}).sort({score:{$meta:'textScore'}})
+
+------------------------
+  Logging Slow Queries
+------------------------
+When I have slow queries...
+	automatically shows up in mongod server running!
+	look at it to figure out what specific queries are slow!
+
+------------
+  Profiler
+------------
+Levels: 0, 1, 2
+0 = off
+1 = log slow queries	<- performance debugging
+2 = log ALL queries	<- functional debugging
+
+mongod -dbpath /usr/local/var/mongodb --profile 1 --slowms 2
+
+then later in mongo client
+ > db.system.profile.find()
+	Presents any slow queries (since profiler is level 1)
+
+db.getProfilingStatus()		<- view profiling status
+db.setProfilingStatus(1,4)	<- profiling level still 1, >4 milliseconds
+
+Example querying in system profiler:
+db.system.profile.find({millis:{$gt : 1000}}).sort({ts:-1})
+
+Finds all queries that took longer than 1 second (1000 milliseconds) and sort them by TIMESTAMP descending order
+
+
+-------------
+  MongoStat
+-------------
+ * Tells you about some performance stats on queries
+ * idx miss % = miss rate of index to memory 
+	(want to lower this to ensure index is used often)
+	(misses mean index needs to be retrieved from disk)
+ * memory usage of indexes
+
+
+------------
+  MongoTop
+------------
+ * Gives you a high level view of where Mongo spends its time
+	- which collection or namespace time is being spent
+	- times spent reading or writing?

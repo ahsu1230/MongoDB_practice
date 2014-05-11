@@ -1,0 +1,19 @@
+Under blog, the following queries:
+
+users:
+	.find_one('_id')
+posts:
+	.find().sort('date')
+	.find('tags').sort('date')
+	.find('permalink')
+sessions:
+	.find_one('_id')
+
+
+So since there are indexes on '_id' by default
+we need the following indexes:
+
+
+db.posts.ensureIndex( {'date':-1} )
+db.posts.ensureIndex( {'tags':1, 'date':-1} )
+db.posts.ensureIndex( {'permalink':1} )

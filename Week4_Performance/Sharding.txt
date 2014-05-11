@@ -1,0 +1,23 @@
+------------
+  Sharding
+------------
+
+Sometimes, you can't put ALL the data on a single server
+You can shard to deploy multiple Mongo servers that each contain different data sets
+
+Application  ->  mongoS     -> 	mongoD
+		(router)	(bunch of mongo servers)
+
+* There can be multiple mongoS routers, but usually is on same machine as application running
+
+Each mongoD has a Replica Set (replications in case primary server goes down)
+
+
+
+Queries usually require a shard_key (i.e. student_id)
+Based on student_id, mongoS will send the query to the correct mongo server
+
+* INSERT * requires the complete shard_key
+
+* UPDATE * REMOVE * FIND *
+	if no shard_key given, then query is broadcasted to all servers!
