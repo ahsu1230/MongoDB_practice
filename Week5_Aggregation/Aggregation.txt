@@ -1,0 +1,120 @@
+-------------------------
+  Aggregation Framework
+-------------------------
+
+Example!
+
+Given a table: products
+Attributes:	name, category, manufacturer, price
+
+Let's say we want how many products are from each manufacturer
+
+In SQL, select manufacturer, count (*) from products. group by manufacturer
+	manufacturer	count(*)
+	Apple		2
+	Samsung		3
+
+In MongoDB
+db.products.aggregate([ {$group:
+				{
+					_id:"$manufacturer",
+					num_products:{$sum:1}
+				}
+			   } 
+		      ])
+
+Group by 'manufacturer' (using $group) and display as _id
+Create new field called num_products that calls $sum operator and adds 1 for each
+
+Result: list of documents
+
+{ "_id":"Amazon", "num_products":2 }
+{ "_id":"Google", "num_products":1 }
+{ "_id":"Apple", "num_products":3 }
+
+So, what happens?
+	- start with an empty result document set
+	- The aggregate command looks through every document
+	- For each document, observe manufacturer field
+	- Is "$manufacturer" an _id document in result set?
+	- Upsert _id document and create/change num_products key by 1
+
+---------------------
+  Compound Grouping
+---------------------
+
+What if group by multiple keys? i.e. each manufacturer had in each category?
+In SQL: select manufacturer, category count(*) from products group by manufacturer, category.
+In MongoDB:
+	_id: { manufacturer:"$manufacturer",
+	       category: "$category"
+	     }
+	num_products: {$sum:1}
+
+Result:
+{ "_id" : { "manufacturer":"Amazon", "category":"Tablets" }, "num_products":2 }
+...
+*note* because we're using "_id", it can be an embedded document... but it MUST be unique!!
+
+----------------------
+  Grouping Operators
+----------------------
+ $sum
+ $avg
+ $min
+ $max
+ $push
+ $addtoSet
+ $first
+ $last
+
+-------------------------
+  Aggregation Pipeline
+-------------------------
+Like the Unix pipeline
+
+The .aggregate() function takes as parameter an array of operations
+Each operation is a stage in the pipeline that could transform the collection
+
+Stages:
+
+   * $project * reshape    (1:1)
+   * $match *	filter	   (n:1)
+   * $group *	aggregate  (n:1)
+   * $sort *	sort 	   (1:1)
+   * $skip *	skips	   (n:1)
+   * $limit *	limit	   (n:1)
+   * $unwind *	normalize  (1:n)
+   * $out *	output	   (1:1)
+
+
+----------------------
+  Aggregation Limits
+----------------------
+ (1) 100 MB for pipeline stages - can get around by using allowDiskUse oWption
+ (2) If want result as one document - 16 MB limit!
+	In Python, use a cursor and use a loop to go through all elements in cursor
+ (3) If sharded system, not scalable for $group or $sort
+	These operations want us to look at ALL data together
+	So data is sent to ONE shard and then processed on ONE shard
+	Very intensive on one server and not very scalable
+	Answer: Hadoop / Mapreduce!
+
+-----------------------
+  Aggregation vs. SQL
+-----------------------
+http://docs.mongodb.org/manual/reference/sql-aggregation-comparison/
+
+Mappings: (SQL -> MongoDB)
+ - WHERE	$match (match clause)
+ - GROUP BY	$group
+ - HAVING	$match (which fields you want to see)
+ - SELECT	$project
+ - ORDER BY	$sort
+ - LIMIT	$limit
+ - SUM()	$sum
+ - COUNT()	$sum:1
+ - join		no direct corresponding operator, 
+		but very similar to $unwind to make results easier for aggregation
+
+look at examples @ hyperlink above

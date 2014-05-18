@@ -1,0 +1,21 @@
+db.grades.aggregate( [
+	{ $unwind:"$scores" },
+	{ $match: {"scores.type":{$ne:"quiz"}}},
+	{ $group: {_id:{sID:"$student_id",cID:"$class_id"},avg_student_score:{$avg:"$scores.score"}}},
+	{ $group: {_id:"$_id.cID", avg_class_score:{$avg:"$avg_student_score"}}},
+	{ $sort: {avg_class_score:1} }
+	] )
+
+
+We want to get the class ID with the highest non-quiz average score
+
+Documents are in format:
+
+{_id, student_id, class_id, scores [array of {type,score}]}
+
+Idea is to 
+1) unwind so we get rid of the array
+2) purge out quiz scores (match anything that scores.type is not "quiz")
+3) group by students_class to get average scores of students in each class
+4) group by class to get average scores of classes
+5) sort by average class scores

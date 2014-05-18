@@ -1,0 +1,15 @@
+db.zips.aggregate( [
+	{ $project : {_id:1,pop:1,city:1,first_char:{$substr:["$city",0,1]}} },
+	{ $match: {$or:[{first_char:"0"},{first_char:"1"},{first_char:"2"},{first_char:"3"},{first_char:"4"},{first_char:"5"},{first_char:"6"},{first_char:"7"},{first_char:"8"},{first_char:"9"}]}},
+	{ $group : {_id:1,total_pop:{"$sum":"$pop"}}}
+	])
+
+
+We want the sum of people who live in cities that starts with a digit.
+To do that, we...
+1) add in a new key that gets the first character of the city (first_char using $substr)
+	Be sure to keep other fields like "pop", "city"
+2) match only on $first_char to see if it's a value in [0-9]
+3) Add up all $pop using $group.$sum and using a dummy _id value
+
+,{ $group : {_id:1,total_pop:{"$sum":"$pop"}}}

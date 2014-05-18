@@ -1,0 +1,10 @@
+db.posts.aggregate([
+	{$project : {"author":"$comments.author"}},
+	{$unwind  : "$author"},
+	{$group	  : {_id:"$author", posts_per_author:{$sum:1} }},
+	{$sort	  : {posts_per_author:-1}}
+	])
+
+To check, 
+Mariela Sherer should have 387 comments (fewest comments)
+And Elizabet Kleine should have 503 comments (most comments)

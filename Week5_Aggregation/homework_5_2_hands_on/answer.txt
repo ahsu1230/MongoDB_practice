@@ -1,0 +1,4 @@
+db.zips.aggregate([
+		{$match:{$or:[{state:"NJ"},{state:"CT"}], pop:{$gt:25000}}},
+		{$group:{_id:"$state",sum_pop:{"$sum":"$pop"},num:{"$sum":1}}}
+	])
